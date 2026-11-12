@@ -98,7 +98,7 @@ dialog with a live Advertise ID:
 
 ```
 Advertising Choose
-Advertise ID: 18eef8ce-3266-4252-8878-8b447a68a5ec
+Advertise ID: <your-device-uuid>      (a real per-device identifier; redacted here)
 [Reset AD ID]  [Manage Options]            [Not Agree] [Agree]
 ```
 
