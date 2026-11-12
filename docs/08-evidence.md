@@ -212,7 +212,7 @@ The first reboot after debloating raises this, once:
 
 ## 8. The TV still works
 
-Home screen after debloating and rebooting. Vendor launcher intact, RAM reclaimed:
+Vendor launcher after debloating and rebooting — Apps tab, intact, RAM reclaimed:
 
 ![Home screen after debloat](images/05-home-after-debloat.jpg)
 

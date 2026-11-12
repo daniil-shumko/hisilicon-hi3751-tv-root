@@ -126,7 +126,10 @@ If the home screen is gone: `adb shell pm enable com.zeasn.launcher`.
 
 ![Home screen after debloat](images/05-home-after-debloat.jpg)
 
-## Screenshot after debloat
+## Launcher after debloat
+
+The vendor launcher (its Apps tab) still works after the purge — the box is not missing
+anything it needs:
 
 Screen size is 1920×1080 with density 240. `screencap` works but occasionally returns a
 stale frame until something forces a redraw — if you get an identical image twice, send

@@ -67,7 +67,7 @@ $ adb shell su -c 'id -u'          # from an unprivileged shell
 0
 ```
 
-Home screen after debloating and a full power cycle — launcher intact, 284 MB of RAM back:
+Launcher after debloating and a full power cycle — intact, 284 MB of RAM reclaimed:
 
 <img src="docs/images/05-home-after-debloat.jpg" width="620" alt="Home screen after debloating">
 
