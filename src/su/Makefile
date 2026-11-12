@@ -20,8 +20,9 @@ else
 HOSTTAG  := linux-x86_64
 endif
 
-CC       := $(NDK)toolchains/llvm/prebuilt/$(HOSTTAG)/bin/armv7a-linux-androideabi21-clang
+CC       := $(NDK)toolchains/llvm/prebuilt/$(HOSTTAG)/bin/armv7a-linux-androideabi23-clang
 CFLAGS   := -O2 -Wall -Wextra -Wno-unused-parameter
+LDFLAGS  := -pthread
 OUT      := out
 
 all: $(OUT)/su $(OUT)/ktvsud
@@ -30,10 +31,10 @@ $(OUT):
 	@mkdir -p $(OUT)
 
 $(OUT)/su: su.c | $(OUT)
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 $(OUT)/ktvsud: ktvsud.c | $(OUT)
-	$(CC) $(CFLAGS) -o $@ $<
+	$(CC) $(CFLAGS) -o $@ $< $(LDFLAGS)
 
 clean:
 	rm -rf $(OUT)

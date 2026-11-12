@@ -24,6 +24,38 @@ id -u           -> 10462    (phone -- this is the bug)
 
 **Lesson.** An alternating failure is almost never a race. It is two of something.
 
+## An app says it cannot obtain root
+
+Start with the call log. It answers "did the app even ask, and with what?":
+
+```bash
+adb root
+adb shell cat /data/misc/ktvsu/calls.log
+```
+
+Each line is `time uid=<uid> <command|(interactive shell)> :: <verdict>`.
+
+Three causes, in the order they are worth checking:
+
+1. **No entry for that uid at all.** The app never invoked `su` — it is looking for a root
+   solution by other means (a Magisk daemon, a `su` in a path you do not have), or it caches a
+   previous failure. See [09-superuser.md](09-superuser.md#2-magisk-flag-compatibility) for
+   the flags apps send.
+
+2. **`:: deny (rejected/timeout)`.** You missed the prompt, or the request took longer than
+   the 120 s window. Approve it in the KTV Superuser app, or pre-seed the rule.
+
+3. **`:: allow (...)` and the app still fails.** The shell is not behaving like a terminal.
+   Browsers, file managers and terminals want a **pty** and a prompt; a pipe that only
+   collects output looks like failure. The reference fix was `forkpty()` in the daemon
+   ([09-superuser.md](09-superuser.md#1-a-pty-not-a-pipe)).
+
+If you want to see exactly what an app is doing, watch the log while it tries:
+
+```bash
+adb shell "tail -f /data/misc/ktvsu/calls.log"
+```
+
 ## `setuid` binary says "Operation not permitted"
 
 Expected, and not fixable. See [05-app-level-root.md](05-app-level-root.md). The binary

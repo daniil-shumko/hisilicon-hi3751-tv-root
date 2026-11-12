@@ -38,6 +38,9 @@
 #include <sys/types.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <poll.h>
+#include <pty.h>
+#include <utmp.h>
 
 #define SOCK_REQ      "ktvsu"
 #define SOCK_ADM      "ktvsuadm"
@@ -47,6 +50,7 @@
 #define ADMIN_FILE    STATE_DIR "/admin_uid"
 #define PEND_DIR      STATE_DIR "/pending"
 #define ANS_DIR       STATE_DIR "/answer"
+#define CALL_LOG      STATE_DIR "/calls.log"
 
 #define TRAILER       "KTVEXIT"
 #define TRAILER_LEN   12
@@ -269,6 +273,24 @@ static void pkg_for_uid(uid_t uid, char *out, size_t cap) {
 
 /* ---------------------------------------------------------------- request */
 
+static void send_trailer(int fd, int code) {
+    unsigned char tail[TRAILER_LEN];
+    memset(tail, 0, sizeof(tail));
+    memcpy(tail, TRAILER, 7);
+    tail[8] = code & 0xff;
+    tail[9] = (code >> 8) & 0xff;
+    write_full(fd, tail, sizeof(tail));
+}
+
+static void child_env(void) {
+    setenv("PATH",
+           "/sbin:/system/sbin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin", 1);
+    setenv("USER", "root", 1);
+    setenv("HOME", "/data/local/tmp", 1);
+    setenv("TERM", "dumb", 1);
+}
+
+/* one command: output only */
 static void run_and_stream(int fd, const char *cmd) {
     int pfd[2];
     if (pipe(pfd) != 0) return;
@@ -279,11 +301,7 @@ static void run_and_stream(int fd, const char *cmd) {
         dup2(pfd[1], STDOUT_FILENO);
         dup2(pfd[1], STDERR_FILENO);
         close(pfd[1]);
-        setenv("PATH",
-               "/sbin:/system/sbin:/system/bin:/system/xbin:/odm/bin:/vendor/bin:/vendor/xbin",
-               1);
-        setenv("USER", "root", 1);
-        setenv("HOME", "/data/local/tmp", 1);
+        child_env();
         execl("/system/bin/sh", "sh", "-c", cmd, (char *)NULL);
         _exit(127);
     }
@@ -302,13 +320,90 @@ static void run_and_stream(int fd, const char *cmd) {
         if (WIFEXITED(st))        code = WEXITSTATUS(st);
         else if (WIFSIGNALED(st)) code = 128 + WTERMSIG(st);
     }
+    send_trailer(fd, code);
+}
 
-    unsigned char tail[TRAILER_LEN];
-    memset(tail, 0, sizeof(tail));
-    memcpy(tail, TRAILER, 7);
-    tail[8] = code & 0xff;
-    tail[9] = (code >> 8) & 0xff;
-    write_full(fd, tail, sizeof(tail));
+/* Interactive root shell, on a pty.
+ *
+ * A pty is not a luxury here. Root-aware apps spawn `su` and wait for the
+ * shell to announce itself; with plain pipes there is no prompt, no job
+ * control and no line discipline, and a 5 s read timeout turns into
+ * "could not obtain root". FX File Explorer is exactly that case:
+ *
+ *   W nextapp.cat: Error querying /proc/mounts.
+ *   W nextapp.cat: ze.i$b: Interactive Shell Error
+ */
+static void run_interactive(int fd) {
+    int master = -1;
+    pid_t pid = forkpty(&master, NULL, NULL, NULL);
+    if (pid < 0) { send_trailer(fd, 1); return; }
+
+    if (pid == 0) {
+        child_env();
+        setenv("PS1", "# ", 1);
+        setenv("PS2", "> ", 1);
+        execl("/system/bin/sh", "sh", "-i", (char *)NULL);
+        execl("/system/bin/sh", "sh", (char *)NULL);
+        _exit(127);
+    }
+
+    char buf[8192];
+    int stdin_open = 1;
+
+    for (;;) {
+        struct pollfd fds[2];
+        int nf = 0;
+        fds[nf].fd = master;
+        fds[nf].events = POLLIN;
+        fds[nf].revents = 0;
+        nf++;
+        if (stdin_open) {
+            fds[nf].fd = fd;
+            fds[nf].events = POLLIN;
+            fds[nf].revents = 0;
+            nf++;
+        }
+
+        int rc = poll(fds, (nfds_t)nf, 500);
+        if (rc < 0 && errno != EINTR) break;
+
+        if (rc > 0) {
+            if (fds[0].revents & (POLLIN | POLLHUP)) {
+                ssize_t n = read(master, buf, sizeof(buf));
+                if (n > 0) {
+                    if (write_full(fd, buf, (size_t)n) != 0) break;
+                } else if (n == 0) {
+                    break;
+                } else if (errno == EIO) {
+                    break;              /* child has gone */
+                }
+            }
+            if (nf > 1 && (fds[1].revents & (POLLIN | POLLHUP))) {
+                ssize_t n = read(fd, buf, sizeof(buf));
+                if (n > 0) {
+                    if (write_full(master, buf, (size_t)n) != 0) { stdin_open = 0; }
+                } else {
+                    stdin_open = 0;
+                }
+            }
+        }
+
+        int st;
+        if (waitpid(pid, &st, WNOHANG) == pid) {
+            ssize_t n;
+            while ((n = read(master, buf, sizeof(buf))) > 0) {
+                if (write_full(fd, buf, (size_t)n) != 0) break;
+            }
+            int code = WIFEXITED(st) ? WEXITSTATUS(st)
+                     : (WIFSIGNALED(st) ? 128 + WTERMSIG(st) : 1);
+            send_trailer(fd, code);
+            close(master);
+            return;
+        }
+    }
+
+    close(master);
+    send_trailer(fd, 1);
 }
 
 static void deny(int fd, const char *why) {
@@ -340,6 +435,35 @@ static int wait_for_answer(const char *id, int *remember) {
     return 0;
 }
 
+/* Append one line per request. Root-only, rotated at 128 KB.
+ *
+ * This is the difference between guessing why an app "cannot get root" and
+ * knowing: it records the uid, the command (or "interactive shell") and the
+ * verdict. */
+static void log_call(uid_t uid, const char *cmd, const char *verdict) {
+    struct stat st;
+    if (stat(CALL_LOG, &st) == 0 && st.st_size > 128 * 1024) {
+        char keep[80];
+        snprintf(keep, sizeof(keep), "%s.old", CALL_LOG);
+        rename(CALL_LOG, keep);
+    }
+    FILE *f = fopen(CALL_LOG, "a");
+    if (!f) return;
+    char head[160];
+    size_t i = 0;
+    if (cmd) {
+        for (; cmd[i] && i < sizeof(head) - 1; i++) {
+            char c = cmd[i];
+            head[i] = (c == '\n' || c == '\r') ? ' ' : c;
+        }
+    }
+    head[i] = 0;
+    fprintf(f, "%ld uid=%u %s :: %s\n", (long)time(NULL), (unsigned)uid,
+            cmd ? (head[0] ? head : "(empty)") : "(interactive shell)", verdict);
+    fclose(f);
+    chmod(CALL_LOG, 0600);
+}
+
 static void serve_client(int fd) {
     uid_t uid = peer_uid(fd);
     if (uid == (uid_t)-1) { close(fd); return; }
@@ -347,20 +471,26 @@ static void serve_client(int fd) {
     unsigned char hdr[4];
     if (read_full(fd, hdr, 4) != 0) { close(fd); return; }
     unsigned int len = hdr[0] | (hdr[1] << 8) | (hdr[2] << 16) | ((unsigned)hdr[3] << 24);
-    if (len == 0 || len > CMD_MAX) { close(fd); return; }
+    if (len > CMD_MAX) { close(fd); return; }
 
-    char *cmd = calloc(1, len + 1);
-    if (!cmd || read_full(fd, cmd, len) != 0) { free(cmd); close(fd); return; }
+    /* len == 0 means "give me an interactive root shell" */
+    char *cmd = NULL;
+    if (len > 0) {
+        cmd = calloc(1, len + 1);
+        if (!cmd || read_full(fd, cmd, len) != 0) { free(cmd); close(fd); return; }
+    }
 
     char rule[16], mode[32];
     policy_for(uid, rule, sizeof(rule));
     read_mode(mode, sizeof(mode));
 
     if (!strcmp(mode, "deny-all") && strcmp(rule, "allow")) {
+        log_call(uid, cmd, "deny (deny-all mode)");
         deny(fd, "root access disabled (deny-all mode)");
         free(cmd); close(fd); return;
     }
     if (!strcmp(rule, "deny")) {
+        log_call(uid, cmd, "deny (policy)");
         deny(fd, "denied by policy");
         free(cmd); close(fd); return;
     }
@@ -375,7 +505,7 @@ static void serve_client(int fd) {
         snprintf(path, sizeof(path), PEND_DIR "/%s", id);
         FILE *f = fopen(path, "w");
         if (!f) { deny(fd, "cannot queue request"); free(cmd); close(fd); return; }
-        fprintf(f, "%u\n%s\n%s\n", (unsigned)uid, pkg, cmd);
+        fprintf(f, "%u\n%s\n%s\n", (unsigned)uid, pkg, cmd ? cmd : "(interactive shell)");
         fclose(f);
         chmod(path, 0600);
 
@@ -405,13 +535,23 @@ static void serve_client(int fd) {
         unlink(path);
         if (allowed) {
             if (remember && strcmp(mode, "allow-all")) policy_set(uid, "allow");
+            log_call(uid, cmd, "allow (approved)");
         } else {
+            log_call(uid, cmd, "deny (rejected/timeout)");
             deny(fd, "request denied");
             free(cmd); close(fd); return;
         }
     }
 
-    run_and_stream(fd, cmd);
+    if (strcmp(rule, "allow") == 0 || !strcmp(mode, "allow-all")) {
+        log_call(uid, cmd, "allow (rule)");
+    }
+
+    if (cmd) {
+        run_and_stream(fd, cmd);
+    } else {
+        run_interactive(fd);
+    }
     free(cmd);
     close(fd);
 }

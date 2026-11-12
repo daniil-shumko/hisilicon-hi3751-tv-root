@@ -117,7 +117,7 @@ what makes persistent changes possible without touching a single boot partition.
 | [docs/06-debloat.md](docs/06-debloat.md) | The preinstalled adware, what is safe to disable, and how to undo it |
 | [docs/07-troubleshooting.md](docs/07-troubleshooting.md) | Every failure encountered, including the flaky-`su` red herring |
 | [docs/08-evidence.md](docs/08-evidence.md) | Verbatim command transcripts and screenshots backing every claim |
-| [docs/09-superuser.md](docs/09-superuser.md) | v2: on-screen approval before an app gets root, plus a rules manager |
+| [docs/09-superuser.md](docs/09-superuser.md) | v2: on-screen approval before an app gets root, a rules manager, pty shells and Magisk flag compatibility |
 | [src/su/](src/su) | `su` client, `ktvsud` root daemon, init `.rc`, Makefile |
 | [src/manager/](src/manager) | the KTV Superuser app (approval prompt + rules manager) |
 | [scripts/](scripts) | `check.sh`, `root.sh`, `install-su.sh`, `uninstall-su.sh`, `debloat.sh`, `recon.sh` |

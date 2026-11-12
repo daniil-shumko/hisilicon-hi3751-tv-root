@@ -153,6 +153,65 @@ On a prompt:
 
 Focus starts on **DENY**, so a stray ENTER press on a remote never grants root.
 
+## What a real root app needs
+
+An approval prompt is the easy half. The hard half is convincing apps that already look for
+root that they have found it. Two things bit this project, both discoverable from the call
+log below.
+
+### 1. A pty, not a pipe
+
+Root shells are long-lived and bidirectional. If `su` with no arguments returns a pipe, there
+is no prompt and no line discipline, and an app that waits for the shell to introduce itself
+times out:
+
+```
+W nextapp.cat: Error querying /proc/mounts.
+W nextapp.cat: ze.i$b: Interactive Shell Error
+```
+
+The daemon now uses `forkpty()`. A missing pty looks exactly like "root is broken".
+
+### 2. Magisk flag compatibility
+
+Apps probe for *which* root solution is installed by using its flags. FX File Explorer runs
+`su -mm` — Magisk's `--mount-master` — and expects a shell back. Treating `-mm` as the command
+to run makes every one of those apps conclude root is unavailable.
+
+The client therefore accepts:
+
+```
+-c CMD                          one-shot
+-s, --shell, -l, --login        interactive
+-mm, -M, --mount-master         global mount namespace (no-op: the daemon already
+                                lives in init's namespace)
+-p, -u, --preserve-environment  ignored
+-v, --version  -h, --help
+"0" CMD...                      legacy `su 0 cmd`
+unknown -flags                  ignored, not fatal
+```
+
+### The call log
+
+Every request is appended to `/data/misc/ktvsu/calls.log` (root only, rotated at 128 KB):
+
+```
+1794451529 uid=10075 (interactive shell) :: allow (rule)
+1794451534 uid=10075 (interactive shell) :: allow (rule)
+1794451441 uid=10075 -mm :: allow (rule)          <- the bug, before the fix
+```
+
+That last line is the entire diagnosis: FX was allowed, and it asked for `-mm`. Without the
+log this looks like a permissions problem and you go hunting in the wrong place.
+
+```bash
+adb root && adb shell cat /data/misc/ktvsu/calls.log
+```
+
+With both fixed, FX browses `/` as root:
+
+![FX File Explorer browsing / with root](images/09-fx-root-access.jpg)
+
 ## Commands that do not prompt
 
 `uid 0` and `uid 2000` (`shell`) are seeded at install time. `su` from an `adb shell` is
