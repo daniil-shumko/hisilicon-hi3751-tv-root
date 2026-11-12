@@ -87,7 +87,7 @@ echo "[*] ktvsud pid: ${PID:-NOT RUNNING}"
 [[ -n "$PID" ]] || { echo "!! daemon failed: $(sh_ 'cat /data/local/tmp/ktvsud.log')" >&2; exit 1; }
 
 # ---- let the app raise the prompt over other apps -----------------------
-echo "[*] granting SYSTEM_ALERT_WINDOW (needed to raise the prompt over another app)"
+echo "[*] granting SYSTEM_ALERT_WINDOW (optional; the daemon raises the prompt itself)"
 sh_ 'appops set lan.ktvsu.manager SYSTEM_ALERT_WINDOW allow' >/dev/null 2>&1 || true
 sh_ 'am force-stop lan.ktvsu.manager' >/dev/null 2>&1 || true
 sh_ 'am start -n lan.ktvsu.manager/.MainActivity' >/dev/null 2>&1 || true

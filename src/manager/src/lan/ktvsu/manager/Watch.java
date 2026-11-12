@@ -88,10 +88,12 @@ public class Watch extends Service {
                     alive.add(id);
                     if (seen.contains(id)) continue;
                     seen.add(id);
-                    raise(id,
-                            Admin.str(p, "pkg"),
-                            Admin.str(p, "cmd"),
-                            Admin.num(p, "uid"));
+                    /* Do not startActivity here: Android 14 refuses background
+                     * activity starts from a foreground service (BAL_BLOCK) and
+                     * SYSTEM_ALERT_WINDOW does not reliably lift it. The root
+                     * daemon raises the prompt instead -- a start from uid 0 is
+                     * allowlisted. We only keep this process warm so answering
+                     * is instant, and dedupe ids we have already reported. */
                 }
                 seen.retainAll(alive);
                 sleep(pend.isEmpty() ? 900 : 400);

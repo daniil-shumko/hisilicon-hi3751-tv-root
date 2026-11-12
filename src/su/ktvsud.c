@@ -379,6 +379,26 @@ static void serve_client(int fd) {
         fclose(f);
         chmod(path, 0600);
 
+        /* Raise the prompt from *here*, not from the app.
+         *
+         * Android 14 blocks background activity starts (BAL_BLOCK) from a
+         * foreground service, and SYSTEM_ALERT_WINDOW is not enough after a
+         * reboot. A start issued by uid 0 is allowlisted, so the daemon --
+         * which is root -- asks the system to show the dialog. The app then
+         * only has to read the request and answer it. */
+        pid_t launcher = fork();
+        if (launcher == 0) {
+            execl("/system/bin/am", "am", "start", "-n",
+                  "lan.ktvsu.manager/.PromptActivity",
+                  "--es", "id", id,
+                  (char *)NULL);
+            _exit(127);
+        }
+        if (launcher > 0) {
+            int st;
+            waitpid(launcher, &st, 0);
+        }
+
         int remember = 0;
         int allowed = wait_for_answer(id, &remember);
 

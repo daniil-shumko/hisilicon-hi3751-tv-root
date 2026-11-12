@@ -27,12 +27,50 @@ public class PromptActivity extends Activity {
 
         Intent it = getIntent();
         id = it.getStringExtra("id");
+        if (id == null) { finish(); return; }
         pkg = it.getStringExtra("pkg");
         cmd = it.getStringExtra("cmd");
         uid = it.getLongExtra("uid", -1);
 
-        if (id == null) { finish(); return; }
-        setContentView(build());
+        if (pkg == null) {
+            /* The daemon only passes the id; ask it for the details so the
+             * request and this dialog can never disagree. */
+            setContentView(busy());
+            new Thread(new Runnable() {
+                public void run() {
+                    load();
+                    runOnUiThread(new Runnable() {
+                        public void run() {
+                            if (pkg == null) { finish(); return; }
+                            setContentView(build());
+                        }
+                    });
+                }
+            }).start();
+        } else {
+            setContentView(build());
+        }
+    }
+
+    void load() {
+        String resp = Admin.call("{\"op\":\"pending\"}");
+        for (String o : Admin.objects(resp, "pending")) {
+            if (id.equals(Admin.str(o, "id"))) {
+                pkg = Admin.str(o, "pkg");
+                cmd = Admin.str(o, "cmd");
+                uid = Admin.num(o, "uid");
+                return;
+            }
+        }
+    }
+
+    View busy() {
+        TextView t = new TextView(this);
+        t.setText("request expired");
+        t.setTextSize(24);
+        t.setTextColor(Color.parseColor("#7d8aa8"));
+        t.setGravity(Gravity.CENTER);
+        return t;
     }
 
     /** A second request while the dialog is already up: singleTop means we get
@@ -43,11 +81,19 @@ public class PromptActivity extends Activity {
         super.onNewIntent(it);
         setIntent(it);
         id = it.getStringExtra("id");
-        pkg = it.getStringExtra("pkg");
-        cmd = it.getStringExtra("cmd");
-        uid = it.getLongExtra("uid", -1);
         if (id == null) { finish(); return; }
-        setContentView(build());
+        setContentView(busy());
+        new Thread(new Runnable() {
+            public void run() {
+                load();
+                runOnUiThread(new Runnable() {
+                    public void run() {
+                        if (pkg == null) { finish(); return; }
+                        setContentView(build());
+                    }
+                });
+            }
+        }).start();
     }
 
     int dp(float v) {

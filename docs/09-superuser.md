@@ -56,13 +56,44 @@ app calls su -c "id"
              ├─ policy says deny   -> "su: denied by policy", exit 77
              └─ no rule, mode=ask:
                   write pending/<id>  (uid, package, command)
-                  the app polls "ktvsuadm" every ~700 ms
-                  the app raises PromptActivity over whatever is on screen
+                  daemon runs `am start ... PromptActivity --es id <id>`
+                  app reads the request over "ktvsuadm" and renders it
                   user taps -> app sends answer -> daemon writes answer/<id>
                   daemon resumes the waiting su, or denies after 120 s
 ```
 
 The waiting `su` is a blocked `read()` on its own socket. Nothing polls in the client.
+
+### Why the daemon raises the prompt, not the app
+
+The first version had a background service call `startActivity()`. It worked while the app
+was in the foreground and failed the moment the TV rebooted:
+
+```
+W ActivityTaskManager: Background activity launch blocked
+   [callingPackage: lan.ktvsu.manager; callingUid: 10079; callingUidProcState: FOREGROUND_SERVICE;
+    balAllowedByPiSender: BackgroundStartPrivileges[allowsBackgroundActivityStarts=false ...]]
+I ActivityTaskManager: START u0 {cmp=lan.ktvsu.manager/.PromptActivity} from uid 10079 (BAL_BLOCK)
+```
+
+Android 10+ blocks activity starts from the background, and `SYSTEM_ALERT_WINDOW` — which
+normally lifts that restriction — did not survive Android 14's tightening here. A start
+issued by **uid 0** is allowlisted (`BAL_ALLOW_ALLOWLISTED_UID`), so the daemon does it:
+
+```c
+execl("/system/bin/am", "am", "start", "-n", "lan.ktvsu.manager/.PromptActivity",
+      "--es", "id", id, (char *)NULL);
+```
+
+Two consequences, both good:
+
+- the app does not need a service, a notification, or an overlay permission to *show* the
+  prompt — it can be completely dead, and the request still appears
+- only the id is passed, so the dialog fetches the request details from the daemon and the
+  two can never disagree about what is being approved
+
+Verified by rebooting the TV (manager process not running at all) and issuing a request:
+the prompt appeared and `su` returned 0 after `ALLOW ALWAYS`.
 
 ### The bug that cost the most time
 
@@ -95,8 +126,9 @@ is the one detail that will bite you.
 ```
 
 It builds both binaries and the APK, installs them, seeds the policy so `adb shell` never
-prompts, grants `SYSTEM_ALERT_WINDOW` (needed to raise the prompt over another app on
-Android 10+), and starts the manager.
+prompts, and starts the manager. `SYSTEM_ALERT_WINDOW` is still granted — harmless, and it
+keeps the app usable if you later move the prompt logic back into it — but the prompt
+itself comes from the daemon, so it works even if the app is not running.
 
 Seeding `2000 allow` matters: without it, every `adb shell su -c ...` from your laptop would
 need a tap on a TV you are not looking at.
