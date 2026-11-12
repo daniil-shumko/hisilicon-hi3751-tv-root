@@ -1,0 +1,11 @@
+# KTV root daemon (ktvsu) -- provides su for apps
+#
+# Started by init at boot. class late_start means it comes up after the
+# framework, not during early boot. Deliberately not marked "critical":
+# if the daemon crashes it respawns, but a bad daemon can never block
+# the device from booting.
+service ktvsu /system/bin/ktvsud
+    class late_start
+    user root
+    group root
+    seclabel u:r:su:s0

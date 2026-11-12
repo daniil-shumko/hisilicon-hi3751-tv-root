@@ -1,0 +1,15 @@
+# build output
+src/su/out/
+*.o
+*.apk
+
+# local recon dumps
+recon-*.txt
+*.keystore
+
+# editors / OS
+.DS_Store
+*.swp
+*.swo
+.idea/
+.vscode/
