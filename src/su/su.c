@@ -14,6 +14,7 @@
  *
  * Build: see Makefile (armv7a-linux-androideabi21)
  */
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,13 +37,15 @@ static int connect_daemon(void) {
     sa.sun_path[0] = 0; /* abstract namespace */
     memcpy(sa.sun_path + 1, SOCK_NAME, strlen(SOCK_NAME));
 
-    if (connect(s, (struct sockaddr *)&sa, sizeof(sa)) == 0) return s;
+    socklen_t len = (socklen_t)(offsetof(struct sockaddr_un, sun_path) + 1 + strlen(SOCK_NAME));
+    if (connect(s, (struct sockaddr *)&sa, len) == 0) return s;
 
     /* fall back to the filesystem socket the daemon writes if abstract fails */
     memset(&sa, 0, sizeof(sa));
     sa.sun_family = AF_UNIX;
     strcpy(sa.sun_path, "/dev/socket/" SOCK_NAME);
-    if (connect(s, (struct sockaddr *)&sa, sizeof(sa)) == 0) return s;
+    len = (socklen_t)(offsetof(struct sockaddr_un, sun_path) + strlen(sa.sun_path) + 1);
+    if (connect(s, (struct sockaddr *)&sa, len) == 0) return s;
 
     close(s);
     return -1;

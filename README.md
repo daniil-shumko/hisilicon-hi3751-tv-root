@@ -37,7 +37,8 @@ adb shell id              # uid=0(root) context=u:r:su:s0
 #    because plain setuid binaries do NOT work from the app sandbox.
 ./scripts/install-su.sh <tv-ip>
 
-# 5. Strip the vendor adware.
+# 5. Optional: put an approval prompt in front of root, and strip the vendor adware.
+./scripts/install-superuser.sh <tv-ip>
 ./scripts/debloat.sh <tv-ip>
 ```
 
@@ -70,6 +71,11 @@ $ adb shell su -c 'id -u'          # from an unprivileged shell
 Launcher after debloating and a full power cycle — intact, 284 MB of RAM reclaimed:
 
 <img src="docs/images/05-home-after-debloat.jpg" width="620" alt="Home screen after debloating">
+
+And the superuser gate, so root is a decision rather than a default:
+
+<img src="docs/images/07-superuser-prompt.jpg" width="620" alt="Superuser prompt with DENY, ALLOW ONCE and ALLOW ALWAYS">
+<img src="docs/images/08-superuser-manager.jpg" width="620" alt="KTV Superuser manager listing saved rules">
 
 Full transcripts, including the reboot validation and the setuid failure, are in
 [docs/08-evidence.md](docs/08-evidence.md).
@@ -111,7 +117,9 @@ what makes persistent changes possible without touching a single boot partition.
 | [docs/06-debloat.md](docs/06-debloat.md) | The preinstalled adware, what is safe to disable, and how to undo it |
 | [docs/07-troubleshooting.md](docs/07-troubleshooting.md) | Every failure encountered, including the flaky-`su` red herring |
 | [docs/08-evidence.md](docs/08-evidence.md) | Verbatim command transcripts and screenshots backing every claim |
+| [docs/09-superuser.md](docs/09-superuser.md) | v2: on-screen approval before an app gets root, plus a rules manager |
 | [src/su/](src/su) | `su` client, `ktvsud` root daemon, init `.rc`, Makefile |
+| [src/manager/](src/manager) | the KTV Superuser app (approval prompt + rules manager) |
 | [scripts/](scripts) | `check.sh`, `root.sh`, `install-su.sh`, `uninstall-su.sh`, `debloat.sh`, `recon.sh` |
 
 ---

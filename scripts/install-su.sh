@@ -81,11 +81,14 @@ echo "[*] pushing"
 
 echo "[*] installing to /system/bin"
 sh_ 'mount -o rw,remount /' >/dev/null 2>&1 || true
-sh_ 'cp /data/local/tmp/ktv-su /system/bin/su && \
-     cp /data/local/tmp/ktvsud /system/bin/ktvsud && \
-     chown root:root /system/bin/su /system/bin/ktvsud && \
-     chmod 755 /system/bin/su /system/bin/ktvsud && \
-     chmod u-s /system/bin/su' >/dev/null
+# rename rather than overwrite: a running daemon makes the target ETXTBSY
+sh_ 'cp /data/local/tmp/ktv-su /system/bin/su.new && \
+     cp /data/local/tmp/ktvsud /system/bin/ktvsud.new && \
+     chown root:root /system/bin/su.new /system/bin/ktvsud.new && \
+     chmod 755 /system/bin/su.new /system/bin/ktvsud.new && \
+     chmod u-s /system/bin/su.new && \
+     mv -f /system/bin/su.new /system/bin/su && \
+     mv -f /system/bin/ktvsud.new /system/bin/ktvsud' >/dev/null
 
 echo "[*] writing /system/etc/init/ktvsu.rc"
 sh_ 'cp /data/local/tmp/ktvsu.rc /system/etc/init/ktvsu.rc && \

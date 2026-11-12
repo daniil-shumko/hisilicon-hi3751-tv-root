@@ -166,7 +166,12 @@ Removes the `.rc`, kills the daemon, deletes both binaries. `su` stops existing.
 
 ## Security warning — read this
 
-**This daemon has no authentication and no user prompt.** Any process on the TV can obtain
+> **Updated:** [09-superuser.md](09-superuser.md) adds an on-screen approval prompt and a
+> per-app policy to this same daemon (v2). The client protocol below is unchanged. The
+> section that follows describes v1, which is still what you get if you install only
+> `install-su.sh`.
+
+**v1 has no authentication and no user prompt.** Any process on the TV can obtain
 root by connecting to the abstract socket. That is the intended behaviour of a classic
 `su` — it is how rooted Android phones worked before Magisk introduced per-app approval —
 but it means:

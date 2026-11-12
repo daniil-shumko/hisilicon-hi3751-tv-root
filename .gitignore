@@ -1,5 +1,7 @@
 # build output
 src/su/out/
+src/manager/out/
+src/manager/ktvsu.keystore
 *.o
 *.apk
 
