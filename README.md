@@ -46,6 +46,36 @@ partition, and ADB over TCP survives reboots independently of everything here.
 
 ---
 
+## Proof
+
+The box, before anything was touched — vendor `System Info`, the only screen it shows you:
+
+<img src="docs/images/01-vendor-system-info.jpg" width="420" alt="Vendor system info screen showing Hi3751V560, Android 14, kernel 5.10.66_s5">
+
+Developer options, reached only by launching an activity (the vendor settings app never
+shows them). **USB debugging ON**, and wireless debugging present but unavailable:
+
+<img src="docs/images/03-developer-options-usb-debugging.jpg" width="620" alt="Developer options with USB debugging enabled and wireless debugging greyed out">
+
+```
+$ adb root
+restarting adbd as root
+$ adb shell id
+uid=0(root) ... context=u:r:su:s0
+
+$ adb shell su -c 'id -u'          # from an unprivileged shell
+0
+```
+
+Home screen after debloating and a full power cycle — launcher intact, 284 MB of RAM back:
+
+<img src="docs/images/05-home-after-debloat.jpg" width="620" alt="Home screen after debloating">
+
+Full transcripts, including the reboot validation and the setuid failure, are in
+[docs/08-evidence.md](docs/08-evidence.md).
+
+---
+
 ## Why this works (the short version)
 
 Three vendor mistakes, stacked:
@@ -80,6 +110,7 @@ what makes persistent changes possible without touching a single boot partition.
 | [docs/05-app-level-root.md](docs/05-app-level-root.md) | Why setuid fails, and the daemon + client design that replaces it |
 | [docs/06-debloat.md](docs/06-debloat.md) | The preinstalled adware, what is safe to disable, and how to undo it |
 | [docs/07-troubleshooting.md](docs/07-troubleshooting.md) | Every failure encountered, including the flaky-`su` red herring |
+| [docs/08-evidence.md](docs/08-evidence.md) | Verbatim command transcripts and screenshots backing every claim |
 | [src/su/](src/su) | `su` client, `ktvsud` root daemon, init `.rc`, Makefile |
 | [scripts/](scripts) | `check.sh`, `root.sh`, `install-su.sh`, `uninstall-su.sh`, `debloat.sh`, `recon.sh` |
 

@@ -3,6 +3,11 @@
 Everything here was read off the device, not off a spec sheet. Spec sheets lie about
 these boxes; the vendor's own `getprop` output does not.
 
+![Vendor System Info screen](images/01-vendor-system-info.jpg)
+
+*The vendor's own System Info screen. This is the only device information the TV exposes
+through its UI, and its labels are not clickable — see [03-enable-adb.md](03-enable-adb.md).*
+
 ## Hardware
 
 | Field | Value | Source |
@@ -20,6 +25,11 @@ these boxes; the vendor's own `getprop` output does not.
 
 The generic `AndroidTV` model name is why this box is effectively anonymous: no vendor
 string, no part number, no product page. The only reliable identifier is the SoC.
+
+![AOSP About phone](images/02-aosp-about-phone-build-number.jpg)
+
+*AOSP `About phone`, a different settings app from the one above. The build line at the
+bottom is the identifier that actually matters.*
 
 ## Software
 

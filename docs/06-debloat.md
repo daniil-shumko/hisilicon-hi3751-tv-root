@@ -102,6 +102,8 @@ Advertise ID: <your-device-uuid>      (a real per-device identifier; redacted he
 [Reset AD ID]  [Manage Options]            [Not Agree] [Agree]
 ```
 
+![Advertising consent screen](images/06-ad-consent-after-debloat.jpg)
+
 Pressing **Not Agree** dismisses it permanently and declines personalised tracking. It is
 not damage and it is not a boot loop — the launcher was already resumed underneath
 (`dumpsys` showed `mCurrentFocus=com.zeasn.launcher`), the dialog is just drawn on top.
@@ -121,6 +123,8 @@ adb shell pm list packages -d | wc -l
 ```
 
 If the home screen is gone: `adb shell pm enable com.zeasn.launcher`.
+
+![Home screen after debloat](images/05-home-after-debloat.jpg)
 
 ## Screenshot after debloat
 

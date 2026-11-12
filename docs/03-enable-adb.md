@@ -80,6 +80,11 @@ Then:
 Back out to Settings -> System -> Developer options -> USB debugging = ON
 ```
 
+![Developer options with USB debugging enabled](images/03-developer-options-usb-debugging.jpg)
+
+Note the state of the two rows that matter: **USB debugging ON**, wireless debugging
+present but refusing to enable. This single toggle is what opens port 5555.
+
 ## Step 3 — connect
 
 ```bash
@@ -125,9 +130,10 @@ Fallback chain that was actually available on this box before ADB:
    (`com.apkinstaller.ApkInstaller`). You can download an APK from a local HTTP server and
    install it without ADB. That is how the first foothold was obtained.
 2. **The app store** (`zeasn.open.technical.tv.store`) also installs APKs.
-3. **Wireless debugging** is *not* available on this build — the toggle is absent from
-   Developer options. Do not go looking for pairing codes; plain TCP ADB on 5555 is the
-   only path, and it works better anyway.
+3. **Wireless debugging** exists in the list but cannot be enabled on this build. The row
+   is present and not greyed out in the hierarchy dump, but toggling it does not stick and
+   no pairing code is ever produced. Plain TCP ADB on 5555 is the working path and it needs
+   no pairing at all.
 
 ## Making ADB persist
 
